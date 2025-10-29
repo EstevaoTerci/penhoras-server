@@ -1,0 +1,103 @@
+{
+  "name": "penhoras-server-app",
+  "version": "1.0.0",
+  "description": "Aplicativo desktop para gerenciar o servidor de automações Penhoras",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:prod": "cross-env NODE_ENV=production electron .",
+    "start:online": "electron .",
+    "start:emulators": "cross-env USE_FIRESTORE_EMULATOR=true electron .",
+    "dev": "nodemon",
+    "dev:prod": "cross-env NODE_ENV=production nodemon",
+    "dev:online": "nodemon",
+    "dev:emulators": "cross-env USE_FIRESTORE_EMULATOR=true nodemon",
+    "download-node": "node download-node.js",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "dist": "electron-builder --win --publish never",
+    "prebuild": "node download-node.js"
+  },
+  "author": "Penhoras Team",
+  "license": "MIT",
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "electron-log": "^5.2.2",
+    "electron-updater": "^6.3.9"
+  },
+  "build": {
+    "appId": "com.penhoras.server",
+    "productName": "PenhorasServer",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "**/*",
+      "!**/*.ts",
+      "!*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "../server/dist",
+        "to": "server/dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../server/node_modules",
+        "to": "server/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../server/package.json",
+        "to": "server/package.json"
+      },
+      {
+        "from": "../server/.env.production",
+        "to": "server/.env.production"
+      },
+      {
+        "from": "node-portable",
+        "to": "node",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Penhoras Server",
+      "uninstallDisplayName": "Penhoras Server"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "EstevaoTerci",
+      "repo": "penhoras-web"
+    }
+  }
+}

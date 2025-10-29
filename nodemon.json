@@ -1,0 +1,19 @@
+{
+  "watch": [
+    "main.js",
+    "preload.js",
+    "index.html"
+  ],
+  "ext": "js,html,css",
+  "ignore": [
+    "node_modules/**",
+    "dist/**",
+    "*.log"
+  ],
+  "exec": "electron .",
+  "delay": 1000,
+  "verbose": true,
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

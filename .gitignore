@@ -1,0 +1,30 @@
+# Build outputs
+dist/
+out/
+release/
+
+# Dependencies
+node_modules/
+
+# Node.js portable (baixado via script)
+node-portable/
+!node-portable/.gitkeep
+node.zip
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp
+*.tmp
+.cache/
