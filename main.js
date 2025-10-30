@@ -180,19 +180,25 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // Minimizar para bandeja ao invés de fechar
+  // Confirmar antes de fechar o aplicativo
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {
       event.preventDefault();
-      mainWindow.hide();
 
-      // Mostrar notificação na primeira vez (se tray estiver disponível)
-      if (tray && !tray.notificationShown) {
-        tray.displayBalloon({
-          title: 'Penhoras Server',
-          content: 'O aplicativo continua rodando na bandeja do sistema. Clique no ícone para abrir ou use "Sair" para encerrar completamente.'
-        });
-        tray.notificationShown = true;
+      const { dialog } = require('electron');
+      const choice = dialog.showMessageBoxSync(mainWindow, {
+        type: 'warning',
+        buttons: ['Cancelar', 'Fechar'],
+        defaultId: 0,
+        title: 'Confirmar Encerramento',
+        message: 'Deseja realmente fechar o Penhoras Server?',
+        detail: 'As automações (HISCRE, OFCWeb e Guias) serão interrompidas.',
+        cancelId: 0
+      });
+
+      if (choice === 1) {
+        app.isQuitting = true;
+        app.quit();
       }
     }
   });
@@ -357,6 +363,7 @@ async function startServer() {
       ...process.env,
       NODE_ENV: NODE_ENV,
       PORT: SERVER_PORT,
+      LOG_LEVEL: 'info',
       // ✅ NOVO: Indica que está rodando via Electron
       ELECTRON_APP: 'true',
       // ✅ NOVO: Passa caminho do AppData para o servidor usar diretórios persistentes
@@ -368,6 +375,16 @@ async function startServer() {
       // Passar configurações de autenticação do HISCRE
       HISCRE_LOGIN_AUTO: settings.hiscreAuth?.loginAutomatico ? 'true' : 'false',
       HISCRE_OTP_SECRET: settings.hiscreAuth?.otpSecret || '',
+      // Credenciais para acesso aos sistemas (geralmente vazias)
+      HISCRE_USERNAME: '',
+      HISCRE_PASSWORD: '',
+      OFCWEB_USERNAME: '',
+      OFCWEB_PASSWORD: '',
+      // Emuladores do Firestore
+      USE_FIRESTORE_EMULATOR: 'false',
+      // Configurações do Puppeteer
+      PUPPETEER_HEADLESS: 'false',
+      PUPPETEER_TIMEOUT: '180000',
       // Credenciais do Firebase (do arquivo JSON - já com \n corretos)
       FIREBASE_TYPE: firebaseCredentials.type || 'service_account',
       FIREBASE_PROJECT_ID: firebaseCredentials.project_id || 'aps-bsfco',
