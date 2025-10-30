@@ -562,11 +562,22 @@ function stopServer() {
       safeResolve();
     });
 
-    // Matar processo
+    // Matar processo de forma mais agressiva
     try {
       if (process.platform === 'win32') {
-        log.info('Usando taskkill (Windows)...');
-        spawn('taskkill', ['/pid', serverProcess.pid, '/f', '/t']);
+        log.info('Usando taskkill com /F /T para matar árvore de processos...');
+        // /F = força o encerramento, /T = mata a árvore de processos (incluindo Puppeteer/Chrome)
+        const killProcess = spawn('taskkill', ['/pid', serverProcess.pid.toString(), '/f', '/t']);
+
+        killProcess.on('error', (error) => {
+          log.error('❌ Erro ao executar taskkill:', error);
+          safeResolve();
+        });
+
+        killProcess.on('exit', (code) => {
+          log.info(`taskkill saiu com código: ${code}`);
+          // Não chamar safeResolve aqui - deixar o listener 'exit' do serverProcess fazer isso
+        });
       } else {
         serverProcess.kill('SIGTERM');
       }
@@ -576,21 +587,26 @@ function stopServer() {
       safeResolve();
     }
 
-    // Timeout de segurança - força resolução após 5 segundos
+    // Timeout de segurança - força resolução após 3 segundos (reduzido)
     setTimeout(() => {
       if (!resolved) {
         log.warn('⚠️ Timeout ao aguardar encerramento, forçando...');
         sendLog('warn', '⚠️ Forçando encerramento do servidor...');
         if (serverProcess) {
           try {
-            serverProcess.kill('SIGKILL');
+            // Tentar matar novamente de forma mais agressiva
+            if (process.platform === 'win32') {
+              spawn('taskkill', ['/pid', serverProcess.pid.toString(), '/f', '/t']);
+            } else {
+              serverProcess.kill('SIGKILL');
+            }
           } catch (error) {
             log.error('❌ Erro ao forçar encerramento:', error);
           }
         }
         safeResolve();
       }
-    }, 5000);
+    }, 3000); // Reduzido de 5s para 3s
   });
 }
 
@@ -907,11 +923,51 @@ app.on('activate', () => {
   }
 });
 
-app.on('before-quit', async () => {
-  // Parar monitoramento de conexão
-  pararMonitoramentoConexao();
+app.on('before-quit', async (event) => {
+  log.info('📋 Iniciando processo de encerramento...');
 
-  await stopServer();
+  // Prevenir que o app feche imediatamente
+  event.preventDefault();
+
+  // Timeout de segurança mais agressivo: se demorar mais de 8 segundos, força o fechamento
+  const forceQuitTimeout = setTimeout(() => {
+    log.warn('⚠️ Forçando encerramento após timeout de 8 segundos');
+
+    // Matar todos os processos Chrome/Puppeteer residuais no Windows
+    if (process.platform === 'win32') {
+      try {
+        log.info('🔪 Matando processos Chrome residuais...');
+        spawn('taskkill', ['/IM', 'chrome.exe', '/F']);
+        spawn('taskkill', ['/IM', 'node.exe', '/F']);
+      } catch (error) {
+        log.error('Erro ao matar processos residuais:', error);
+      }
+    }
+
+    app.exit(0);
+  }, 8000);
+
+  try {
+    // Parar monitoramento de conexão
+    log.info('🌐 Parando monitoramento de conexão...');
+    pararMonitoramentoConexao();
+
+    // Parar servidor (com timeout interno de 3s)
+    log.info('🛑 Parando servidor...');
+    await stopServer();
+
+    log.info('✅ Encerramento limpo concluído');
+  } catch (error) {
+    log.error('❌ Erro durante encerramento:', error);
+  } finally {
+    clearTimeout(forceQuitTimeout);
+
+    // Esperar um pouco para garantir que tudo foi limpo
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    log.info('👋 Finalizando aplicação...');
+    app.exit(0);
+  }
 });
 
 // Prevenir múltiplas instâncias
