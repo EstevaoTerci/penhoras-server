@@ -2,6 +2,14 @@
   "name": "penhoras-server-app",
   "version": "1.0.0",
   "description": "Aplicativo desktop para gerenciar o servidor de automações Penhoras",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EstevaoTerci/penhoras-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/EstevaoTerci/penhoras-server/issues"
+  },
+  "homepage": "https://github.com/EstevaoTerci/penhoras-server#readme",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -67,6 +75,13 @@
         "to": "server/.env.production"
       },
       {
+        "from": "../server/private",
+        "to": "server/private",
+        "filter": [
+          "*.json"
+        ]
+      },
+      {
         "from": "node-portable",
         "to": "node",
         "filter": [
@@ -97,7 +112,7 @@
     "publish": {
       "provider": "github",
       "owner": "EstevaoTerci",
-      "repo": "penhoras-web"
+      "repo": "penhoras-server"
     }
   }
 }

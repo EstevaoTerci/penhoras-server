@@ -4,7 +4,8 @@ const log = require('electron-log');
 const path = require('path');
 const { spawn } = require('child_process');
 const axios = require('axios');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = fs.promises;
 
 // Configurar logs
 log.transports.file.level = 'info';
@@ -69,7 +70,7 @@ const defaultSettings = {
  */
 async function loadSettings() {
   try {
-    const data = await fs.readFile(settingsPath, 'utf-8');
+    const data = await fsPromises.readFile(settingsPath, 'utf-8');
     return JSON.parse(data);
   } catch (error) {
     // Se não existir, retornar padrão
@@ -82,7 +83,7 @@ async function loadSettings() {
  */
 async function saveSettings(settings) {
   try {
-    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    await fsPromises.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
     log.info('Configurações salvas com sucesso');
     return true;
   } catch (error) {
@@ -184,6 +185,15 @@ function createWindow() {
     if (!app.isQuitting) {
       event.preventDefault();
       mainWindow.hide();
+
+      // Mostrar notificação na primeira vez (se tray estiver disponível)
+      if (tray && !tray.notificationShown) {
+        tray.displayBalloon({
+          title: 'Penhoras Server',
+          content: 'O aplicativo continua rodando na bandeja do sistema. Clique no ícone para abrir ou use "Sair" para encerrar completamente.'
+        });
+        tray.notificationShown = true;
+      }
     }
   });
 
@@ -197,10 +207,19 @@ function createWindow() {
  * Criar ícone na bandeja
  */
 function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
-  tray = new Tray(iconPath);
+  try {
+    const iconPath = path.join(__dirname, 'assets', 'icon.ico');
 
-  const contextMenu = Menu.buildFromTemplate([
+    // Verificar se o ícone existe
+    if (!fs.existsSync(iconPath)) {
+      log.error(`❌ Ícone da bandeja não encontrado: ${iconPath}`);
+      return;
+    }
+
+    tray = new Tray(iconPath);
+    tray.notificationShown = false; // Flag para mostrar notificação apenas uma vez
+
+    const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Abrir Console',
       click: () => {
@@ -209,14 +228,45 @@ function createTray() {
       }
     },
     {
+      label: 'Minimizar para Bandeja',
+      click: () => {
+        mainWindow.hide();
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Status dos Serviços',
+      submenu: [
+        {
+          label: 'HISCRE',
+          enabled: false
+        },
+        {
+          label: 'OFCWeb',
+          enabled: false
+        },
+        {
+          label: 'Guias',
+          enabled: false
+        }
+      ]
+    },
+    { type: 'separator' },
+    {
       label: 'Reiniciar Servidor',
       click: () => {
         restartServer();
       }
     },
+    {
+      label: 'Verificar Atualizações',
+      click: () => {
+        checkForUpdates();
+      }
+    },
     { type: 'separator' },
     {
-      label: 'Sair',
+      label: 'Sair Completamente',
       click: () => {
         app.isQuitting = true;
         app.quit();
@@ -224,13 +274,26 @@ function createTray() {
     }
   ]);
 
-  tray.setToolTip('Penhoras Server');
+  tray.setToolTip('Penhoras Server - Clique para abrir');
   tray.setContextMenu(contextMenu);
 
+  // Duplo clique para abrir
+  tray.on('double-click', () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  // Clique simples também abre (comportamento mais intuitivo)
   tray.on('click', () => {
     mainWindow.show();
     mainWindow.focus();
   });
+
+  log.info('✅ Ícone da bandeja criado com sucesso');
+  } catch (error) {
+    log.error('❌ Erro ao criar ícone da bandeja:', error);
+    tray = null;
+  }
 }
 
 /**
@@ -238,18 +301,56 @@ function createTray() {
  */
 async function startServer() {
   return new Promise(async (resolve, reject) => {
-    log.info('Iniciando servidor Node.js...');
-    sendLog('info', 'Iniciando servidor Node.js...');
+    log.info('=== INICIANDO SERVIDOR NODE.JS ===');
+    sendLog('info', '🚀 Iniciando servidor Node.js...');
 
+    // Verificar se o script do servidor existe
     const serverScript = path.join(serverPath, 'dist', 'app.js');
-    
-    // ✅ NOVO: Log do caminho do UserData para debug
+    log.info(`📄 Script do servidor: ${serverScript}`);
+
+    try {
+      await fsPromises.access(serverScript);
+      sendLog('info', '✅ Script do servidor encontrado');
+    } catch (error) {
+      const errorMsg = `❌ Script do servidor não encontrado: ${serverScript}`;
+      log.error(errorMsg);
+      sendLog('error', errorMsg);
+      reject(new Error(errorMsg));
+      return;
+    }
+
+    // Log do caminho do UserData para debug
     const userDataPath = app.getPath('userData');
     log.info(`📁 UserData Path: ${userDataPath}`);
-    sendLog('info', `📁 Dados persistentes em: ${userDataPath}`);
+    sendLog('info', `📁 Dados persistentes: ${userDataPath}`);
 
     // Carregar configurações
+    sendLog('info', '⚙️ Carregando configurações...');
     const settings = await loadSettings();
+    sendLog('info', '✅ Configurações carregadas');
+
+    // Carregar credenciais do Firebase do arquivo JSON
+    sendLog('info', '🔑 Carregando credenciais do Firebase...');
+    let firebaseCredentials = {};
+    try {
+      const credentialsPath = path.join(serverPath, 'private', 'aps-bsfco-firebase-adminsdk-yzryl-c4dd832e98.json');
+      log.info(`📄 Arquivo de credenciais: ${credentialsPath}`);
+
+      if (fs.existsSync(credentialsPath)) {
+        const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
+        firebaseCredentials = JSON.parse(credentialsContent);
+        sendLog('info', '✅ Credenciais Firebase carregadas');
+        log.info('✅ Credenciais Firebase carregadas com sucesso');
+      } else {
+        const errorMsg = `⚠️ Arquivo de credenciais não encontrado: ${credentialsPath}`;
+        log.warn(errorMsg);
+        sendLog('warn', errorMsg);
+      }
+    } catch (error) {
+      const errorMsg = `❌ Erro ao carregar credenciais Firebase: ${error.message}`;
+      log.error(errorMsg);
+      sendLog('error', errorMsg);
+    }
 
     // Configurar variáveis de ambiente
     const env = {
@@ -266,52 +367,98 @@ async function startServer() {
       AUTOSTART_GUIAS: settings.autostart.guias ? 'true' : 'false',
       // Passar configurações de autenticação do HISCRE
       HISCRE_LOGIN_AUTO: settings.hiscreAuth?.loginAutomatico ? 'true' : 'false',
-      HISCRE_OTP_SECRET: settings.hiscreAuth?.otpSecret || ''
+      HISCRE_OTP_SECRET: settings.hiscreAuth?.otpSecret || '',
+      // Credenciais do Firebase (do arquivo JSON - já com \n corretos)
+      FIREBASE_TYPE: firebaseCredentials.type || 'service_account',
+      FIREBASE_PROJECT_ID: firebaseCredentials.project_id || 'aps-bsfco',
+      FIREBASE_PRIVATE_KEY_ID: firebaseCredentials.private_key_id || '',
+      FIREBASE_PRIVATE_KEY: firebaseCredentials.private_key || '',
+      FIREBASE_CLIENT_EMAIL: firebaseCredentials.client_email || '',
+      FIREBASE_CLIENT_ID: firebaseCredentials.client_id || '',
+      FIREBASE_AUTH_URI: firebaseCredentials.auth_uri || 'https://accounts.google.com/o/oauth2/auth',
+      FIREBASE_TOKEN_URI: firebaseCredentials.token_uri || 'https://oauth2.googleapis.com/token',
+      FIREBASE_AUTH_PROVIDER_X509_CERT_URL: firebaseCredentials.auth_provider_x509_cert_url || 'https://www.googleapis.com/oauth2/v1/certs',
+      FIREBASE_CLIENT_X509_CERT_URL: firebaseCredentials.client_x509_cert_url || '',
+      // Credenciais do Google (mesmas do Firebase)
+      GOOGLE_TYPE: firebaseCredentials.type || 'service_account',
+      GOOGLE_PROJECT_ID: firebaseCredentials.project_id || 'aps-bsfco',
+      GOOGLE_PRIVATE_KEY_ID: firebaseCredentials.private_key_id || '',
+      GOOGLE_PRIVATE_KEY: firebaseCredentials.private_key || '',
+      GOOGLE_CLIENT_EMAIL: firebaseCredentials.client_email || '',
+      GOOGLE_CLIENT_ID: firebaseCredentials.client_id || '',
+      GOOGLE_AUTH_URI: firebaseCredentials.auth_uri || 'https://accounts.google.com/o/oauth2/auth',
+      GOOGLE_TOKEN_URI: firebaseCredentials.token_uri || 'https://oauth2.googleapis.com/token',
+      GOOGLE_AUTH_PROVIDER_X509_CERT_URL: firebaseCredentials.auth_provider_x509_cert_url || 'https://www.googleapis.com/oauth2/v1/certs',
+      GOOGLE_CLIENT_X509_CERT_URL: firebaseCredentials.client_x509_cert_url || ''
     };
 
     // Se usar emuladores, passar a flag
     if (USE_EMULATORS) {
       env.USE_FIRESTORE_EMULATOR = 'true';
-      sendLog('info', '🔧 Servidor será iniciado em modo EMULATORS');
+      sendLog('info', '🔧 Modo: EMULATORS');
     } else if (NODE_ENV === 'production') {
-      sendLog('info', '🚀 Servidor será iniciado em modo PRODUÇÃO');
+      sendLog('info', '🚀 Modo: PRODUÇÃO');
     } else {
-      sendLog('info', '🌐 Servidor será iniciado em modo DEV-ONLINE');
+      sendLog('info', '🌐 Modo: DEV-ONLINE');
     }
 
-    serverProcess = spawn(nodePath, [serverScript], {
-      cwd: serverPath,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
+    // Log das configurações de autostart
+    log.info(`Autostart - HISCRE: ${env.AUTOSTART_HISCRE}, OFCWeb: ${env.AUTOSTART_OFCWEB}, Guias: ${env.AUTOSTART_GUIAS}`);
+    sendLog('info', `⚙️ Autostart configurado para: ${[
+      settings.autostart.hiscre ? 'HISCRE' : null,
+      settings.autostart.ofcweb ? 'OFCWeb' : null,
+      settings.autostart.guias ? 'Guias' : null
+    ].filter(Boolean).join(', ') || 'Nenhum'}`);
 
-    // Capturar logs do servidor
-    serverProcess.stdout.on('data', (data) => {
-      const message = data.toString().trim();
-      log.info(`[SERVER] ${message}`);
-      sendLog('info', message);
-    });
+    sendLog('info', '🔄 Spawning processo do servidor...');
+    log.info(`Node Path: ${nodePath}`);
+    log.info(`Server Script: ${serverScript}`);
+    log.info(`CWD: ${serverPath}`);
 
-    serverProcess.stderr.on('data', (data) => {
-      const message = data.toString().trim();
-      log.error(`[SERVER ERROR] ${message}`);
-      sendLog('error', message);
-    });
+    try {
+      serverProcess = spawn(nodePath, [serverScript], {
+        cwd: serverPath,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
 
-    serverProcess.on('error', (error) => {
-      log.error('Erro ao iniciar servidor:', error);
-      sendLog('error', `Erro ao iniciar servidor: ${error.message}`);
+        sendLog('info', `✅ Processo criado (PID: ${serverProcess.pid})`);
+
+      // Capturar logs do servidor
+      serverProcess.stdout.on('data', (data) => {
+        const message = data.toString().trim();
+        log.info(`[SERVER] ${message}`);
+        sendLog('info', message);
+      });
+
+      serverProcess.stderr.on('data', (data) => {
+        const message = data.toString().trim();
+        log.error(`[SERVER ERROR] ${message}`);
+        sendLog('error', message);
+      });
+
+      serverProcess.on('error', (error) => {
+        log.error('❌ Erro ao spawnar processo:', error);
+        sendLog('error', `❌ Erro ao spawnar processo: ${error.message}`);
+        reject(error);
+      });
+
+      serverProcess.on('exit', (code, signal) => {
+        log.info(`⚠️ Servidor encerrado. Código: ${code}, Signal: ${signal}`);
+        sendLog('warn', `⚠️ Servidor encerrado. Código: ${code}`);
+        serverProcess = null;
+      });
+
+      sendLog('info', '⏳ Aguardando servidor responder na porta 3000...');
+
+      // Aguardar servidor estar pronto
+      waitForServer(resolve, reject);
+
+    } catch (error) {
+      log.error('❌ Erro ao criar processo do servidor:', error);
+      sendLog('error', `❌ Erro ao criar processo: ${error.message}`);
       reject(error);
-    });
-
-    serverProcess.on('exit', (code, signal) => {
-      log.info(`Servidor encerrado. Código: ${code}, Signal: ${signal}`);
-      sendLog('warn', `Servidor encerrado. Código: ${code}`);
-      serverProcess = null;
-    });
-
-    // Aguardar servidor estar pronto
-    waitForServer(resolve, reject);
+    }
   });
 }
 
@@ -319,22 +466,50 @@ async function startServer() {
  * Aguardar servidor responder
  */
 function waitForServer(resolve, reject, attempt = 0) {
-  const maxAttempts = 30;
+  const maxAttempts = 60; // Aumentado para 60 segundos
+  const checkInterval = 1000; // 1 segundo
 
   if (attempt >= maxAttempts) {
+    const errorMsg = `⏱️ Timeout: Servidor não respondeu após ${maxAttempts} segundos`;
+    log.error(errorMsg);
+    sendLog('error', errorMsg);
+    sendLog('error', '💡 Tente reiniciar o servidor manualmente');
     reject(new Error('Timeout ao iniciar servidor'));
     return;
   }
 
+  // Enviar feedback a cada 5 segundos
+  if (attempt > 0 && attempt % 5 === 0) {
+    const elapsed = attempt;
+    sendLog('info', `⏳ Aguardando servidor... (${elapsed}s)`);
+    log.info(`Tentativa ${attempt}/${maxAttempts} - Aguardando ${SERVER_URL}/health`);
+  }
+
+  // Log detalhado da primeira tentativa
+  if (attempt === 0) {
+    log.info(`Verificando health check em: ${SERVER_URL}/health`);
+  }
+
   axios
-    .get(`${SERVER_URL}/health`)
-    .then(() => {
-      log.info('Servidor iniciado com sucesso!');
-      sendLog('success', 'Servidor iniciado com sucesso!');
-      resolve();
+    .get(`${SERVER_URL}/health`, { timeout: 2000 })
+    .then((response) => {
+      log.info('✅ Servidor respondeu ao health check!');
+      log.info(`Resposta: ${JSON.stringify(response.data)}`);
+      sendLog('success', '✅ Servidor iniciado e respondendo!');
+
+      // Pequeno delay para garantir que tudo esteja pronto
+      setTimeout(() => {
+        sendLog('success', '🎉 Pronto para uso!');
+        resolve();
+      }, 500);
     })
-    .catch(() => {
-      setTimeout(() => waitForServer(resolve, reject, attempt + 1), 1000);
+    .catch((error) => {
+      // Log detalhado apenas nas primeiras tentativas e depois a cada 10
+      if (attempt < 3 || attempt % 10 === 0) {
+        log.warn(`Tentativa ${attempt + 1}: ${error.code || error.message}`);
+      }
+
+      setTimeout(() => waitForServer(resolve, reject, attempt + 1), checkInterval);
     });
 }
 
@@ -344,51 +519,56 @@ function waitForServer(resolve, reject, attempt = 0) {
 function stopServer() {
   return new Promise((resolve) => {
     if (!serverProcess) {
-      log.info('Servidor já está parado');
+      log.info('✅ Servidor já está parado');
+      sendLog('info', '✅ Servidor já parado');
       resolve();
       return;
     }
 
-    log.info('Parando servidor...');
-    sendLog('info', 'Parando servidor...');
+    log.info(`🛑 Parando servidor (PID: ${serverProcess.pid})...`);
+    sendLog('info', '🛑 Parando servidor...');
 
     let resolved = false;
     const safeResolve = () => {
       if (!resolved) {
         resolved = true;
         serverProcess = null;
-        log.info('Servidor parado');
-        sendLog('info', 'Servidor parado');
+        log.info('✅ Servidor parado com sucesso');
+        sendLog('success', '✅ Servidor parado');
         resolve();
       }
     };
 
     // Listener para o evento exit (só será chamado uma vez por causa do safeResolve)
-    serverProcess.once('exit', () => {
+    serverProcess.once('exit', (code) => {
+      log.info(`Processo encerrado com código: ${code}`);
       safeResolve();
     });
 
     // Matar processo
     try {
       if (process.platform === 'win32') {
+        log.info('Usando taskkill (Windows)...');
         spawn('taskkill', ['/pid', serverProcess.pid, '/f', '/t']);
       } else {
         serverProcess.kill('SIGTERM');
       }
     } catch (error) {
-      log.error('Erro ao tentar parar servidor:', error);
+      log.error('❌ Erro ao tentar parar servidor:', error);
+      sendLog('error', `❌ Erro ao parar: ${error.message}`);
       safeResolve();
     }
 
     // Timeout de segurança - força resolução após 5 segundos
     setTimeout(() => {
       if (!resolved) {
-        log.warn('Timeout ao aguardar encerramento do servidor, forçando...');
+        log.warn('⚠️ Timeout ao aguardar encerramento, forçando...');
+        sendLog('warn', '⚠️ Forçando encerramento do servidor...');
         if (serverProcess) {
           try {
             serverProcess.kill('SIGKILL');
           } catch (error) {
-            log.error('Erro ao forçar encerramento:', error);
+            log.error('❌ Erro ao forçar encerramento:', error);
           }
         }
         safeResolve();
@@ -404,24 +584,32 @@ let restartingServer = false;
 async function restartServer() {
   // Prevenir múltiplas chamadas simultâneas
   if (restartingServer) {
-    log.warn('Reinicialização já em andamento, ignorando nova solicitação');
+    log.warn('⚠️ Reinicialização já em andamento, ignorando nova solicitação');
+    sendLog('warn', '⚠️ Reinicialização já em andamento...');
     return;
   }
 
   restartingServer = true;
 
   try {
-    sendLog('info', 'Reiniciando servidor...');
+    log.info('=== INICIANDO REINICIALIZAÇÃO DO SERVIDOR ===');
+    sendLog('info', '🔄 Reiniciando servidor...');
+
     await stopServer();
 
     // Aguardar um pouco para garantir que o processo foi totalmente encerrado
+    sendLog('info', '⏳ Aguardando limpeza de recursos...');
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
+    sendLog('info', '🚀 Iniciando servidor novamente...');
     await startServer();
-    sendLog('success', 'Servidor reiniciado com sucesso!');
+
+    log.info('=== REINICIALIZAÇÃO CONCLUÍDA COM SUCESSO ===');
+    sendLog('success', '✅ Servidor reiniciado com sucesso!');
   } catch (error) {
-    log.error('Erro ao reiniciar servidor:', error);
-    sendLog('error', 'Erro ao reiniciar servidor: ' + error.message);
+    log.error('❌ Erro ao reiniciar servidor:', error);
+    sendLog('error', `❌ Erro ao reiniciar: ${error.message}`);
+    sendLog('error', '💡 Tente novamente ou feche e abra o aplicativo');
     throw error;
   } finally {
     restartingServer = false;
@@ -643,26 +831,49 @@ ipcMain.handle('verificar-conexao', async () => {
   }
 });
 
+// Minimizar para bandeja
+ipcMain.on('minimize-to-tray', () => {
+  if (mainWindow) {
+    mainWindow.hide();
+  }
+});
+
 /**
  * Eventos do App
  */
 app.whenReady().then(async () => {
+  log.info('========================================');
+  log.info('    PENHORAS SERVER CONSOLE');
+  log.info(`    Versão: ${app.getVersion()}`);
+  log.info(`    Ambiente: ${NODE_ENV}`);
+  log.info(`    Packaged: ${isPackaged}`);
+  log.info('========================================');
+
+  sendLog('info', `🚀 Iniciando Penhoras Server Console v${app.getVersion()}`);
+
   createWindow();
   createTray();
 
   // Verificar atualizações
   if (isPackaged) {
+    sendLog('info', '🔍 Verificando atualizações...');
     checkForUpdates();
+  } else {
+    sendLog('info', '🔧 Modo desenvolvimento - auto-update desabilitado');
   }
 
   // Iniciar servidor
+  sendLog('info', '⚙️ Preparando para iniciar servidor...');
   try {
     await startServer();
   } catch (error) {
-    sendLog('error', `Falha ao iniciar servidor: ${error.message}`);
+    log.error('❌ Falha crítica ao iniciar servidor:', error);
+    sendLog('error', `❌ Falha ao iniciar servidor: ${error.message}`);
+    sendLog('error', '💡 Use o botão "Reiniciar Servidor" para tentar novamente');
   }
 
   // Iniciar monitoramento de conexão
+  sendLog('info', '🌐 Iniciando monitoramento de conexão...');
   iniciarMonitoramentoConexao();
 });
 

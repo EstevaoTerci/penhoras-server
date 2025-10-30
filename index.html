@@ -529,6 +529,9 @@
           Penhoras Server Console
         </h1>
         <div class="header-actions">
+          <button class="btn btn-secondary" onclick="minimizeToTray()" title="Minimizar para a bandeja do sistema">
+            ➖ Minimizar
+          </button>
           <button class="btn btn-primary" onclick="restartServer()">
             🔄 Reiniciar Servidor
           </button>
@@ -1037,6 +1040,12 @@
         } else {
           addLog('error', `Erro ao reiniciar ${serviceName}: ${result.error}`);
         }
+      }
+
+      // Minimizar para bandeja
+      function minimizeToTray() {
+        ipcRenderer.send('minimize-to-tray');
+        addLog('info', 'Aplicativo minimizado para a bandeja do sistema');
       }
 
       // Reiniciar servidor
