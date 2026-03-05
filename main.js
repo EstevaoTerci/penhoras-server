@@ -56,8 +56,14 @@ const nodePath = isPackaged
 const defaultSettings = {
   autostart: {
     hiscre: true,
-    ofcweb: true,
+    ofcwebCadastro: true,
+    ofcwebConsulta: true,
     guias: true
+  },
+  headless: {
+    hiscre: true,
+    guiasCaixa: true,
+    guiasBanestes: true
   },
   hiscreAuth: {
     loginAutomatico: false,
@@ -71,7 +77,23 @@ const defaultSettings = {
 async function loadSettings() {
   try {
     const data = await fsPromises.readFile(settingsPath, 'utf-8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    return {
+      ...defaultSettings,
+      ...parsed,
+      autostart: {
+        ...defaultSettings.autostart,
+        ...(parsed.autostart || {})
+      },
+      headless: {
+        ...defaultSettings.headless,
+        ...(parsed.headless || {})
+      },
+      hiscreAuth: {
+        ...defaultSettings.hiscreAuth,
+        ...(parsed.hiscreAuth || {})
+      }
+    };
   } catch (error) {
     // Se não existir, retornar padrão
     return { ...defaultSettings };
@@ -109,7 +131,7 @@ async function getServiceStatus(serviceName) {
     return response.data;
   } catch (error) {
     log.error(`Erro ao consultar status do ${serviceName}:`, error.message);
-    return { running: false, message: 'Serviço offline ou não disponível' };
+    return { running: false, loggedIn: false, message: 'Serviço offline ou não disponível' };
   }
 }
 
@@ -335,20 +357,75 @@ async function startServer() {
     const settings = await loadSettings();
     sendLog('info', '✅ Configurações carregadas');
 
-    // Carregar credenciais do Firebase do arquivo JSON
+    // ✅ CARREGAR CREDENCIAIS DO GOOGLE DRIVE (automacoes-inss)
+    sendLog('info', '🔑 Carregando credenciais do Google Drive...');
+    let googleDriveCredentials = {};
+    try {
+      const driveCredPath = path.join(serverPath, 'private', 'credentials.json');
+      log.info(`📄 Arquivo de credenciais Drive: ${driveCredPath}`);
+
+      if (fs.existsSync(driveCredPath)) {
+        const credentialsContent = fs.readFileSync(driveCredPath, 'utf8');
+        googleDriveCredentials = JSON.parse(credentialsContent);
+
+        const credenciaisOk = {
+          type: !!googleDriveCredentials.type,
+          project_id: !!googleDriveCredentials.project_id,
+          private_key_id: !!googleDriveCredentials.private_key_id,
+          private_key: !!googleDriveCredentials.private_key,
+          client_email: !!googleDriveCredentials.client_email,
+          client_id: !!googleDriveCredentials.client_id
+        };
+
+        sendLog('info', `✅ Credenciais Google Drive carregadas (${googleDriveCredentials.client_email})`);
+        log.info('   Credenciais Drive presentes:', credenciaisOk);
+
+        if (googleDriveCredentials.private_key) {
+          const keyLength = googleDriveCredentials.private_key.length;
+          const hasNewlines = googleDriveCredentials.private_key.includes('\n');
+          log.info(`   Drive Private Key: ${keyLength} caracteres, tem quebras de linha: ${hasNewlines}`);
+        }
+      } else {
+        const errorMsg = `⚠️ Arquivo credentials.json não encontrado: ${driveCredPath}`;
+        log.warn(errorMsg);
+        sendLog('warn', errorMsg);
+      }
+    } catch (error) {
+      const errorMsg = `❌ Erro ao carregar credenciais Drive: ${error.message}`;
+      log.error(errorMsg);
+      sendLog('error', errorMsg);
+    }
+
+    // ✅ CARREGAR CREDENCIAIS DO FIREBASE (firebase-adminsdk)
     sendLog('info', '🔑 Carregando credenciais do Firebase...');
     let firebaseCredentials = {};
     try {
-      const credentialsPath = path.join(serverPath, 'private', 'aps-bsfco-firebase-adminsdk-yzryl-c4dd832e98.json');
-      log.info(`📄 Arquivo de credenciais: ${credentialsPath}`);
+      const firebaseCredPath = path.join(serverPath, 'private', 'aps-bsfco-firebase-adminsdk-yzryl-c4dd832e98.json');
+      log.info(`📄 Arquivo de credenciais Firebase: ${firebaseCredPath}`);
 
-      if (fs.existsSync(credentialsPath)) {
-        const credentialsContent = fs.readFileSync(credentialsPath, 'utf8');
+      if (fs.existsSync(firebaseCredPath)) {
+        const credentialsContent = fs.readFileSync(firebaseCredPath, 'utf8');
         firebaseCredentials = JSON.parse(credentialsContent);
-        sendLog('info', '✅ Credenciais Firebase carregadas');
-        log.info('✅ Credenciais Firebase carregadas com sucesso');
+
+        const credenciaisOk = {
+          type: !!firebaseCredentials.type,
+          project_id: !!firebaseCredentials.project_id,
+          private_key_id: !!firebaseCredentials.private_key_id,
+          private_key: !!firebaseCredentials.private_key,
+          client_email: !!firebaseCredentials.client_email,
+          client_id: !!firebaseCredentials.client_id
+        };
+
+        sendLog('info', `✅ Credenciais Firebase carregadas (${firebaseCredentials.client_email})`);
+        log.info('   Credenciais Firebase presentes:', credenciaisOk);
+
+        if (firebaseCredentials.private_key) {
+          const keyLength = firebaseCredentials.private_key.length;
+          const hasNewlines = firebaseCredentials.private_key.includes('\n');
+          log.info(`   Firebase Private Key: ${keyLength} caracteres, tem quebras de linha: ${hasNewlines}`);
+        }
       } else {
-        const errorMsg = `⚠️ Arquivo de credenciais não encontrado: ${credentialsPath}`;
+        const errorMsg = `⚠️ Arquivo firebase-adminsdk não encontrado: ${firebaseCredPath}`;
         log.warn(errorMsg);
         sendLog('warn', errorMsg);
       }
@@ -370,7 +447,8 @@ async function startServer() {
       APPDATA: app.getPath('userData'),
       // Passar configurações de autostart para o servidor
       AUTOSTART_HISCRE: settings.autostart.hiscre ? 'true' : 'false',
-      AUTOSTART_OFCWEB: settings.autostart.ofcweb ? 'true' : 'false',
+      AUTOSTART_OFCWEB_CADASTRO: settings.autostart.ofcwebCadastro ? 'true' : 'false',
+      AUTOSTART_OFCWEB_CONSULTA: settings.autostart.ofcwebConsulta ? 'true' : 'false',
       AUTOSTART_GUIAS: settings.autostart.guias ? 'true' : 'false',
       // Passar configurações de autenticação do HISCRE
       HISCRE_LOGIN_AUTO: settings.hiscreAuth?.loginAutomatico ? 'true' : 'false',
@@ -385,7 +463,11 @@ async function startServer() {
       // Configurações do Puppeteer
       PUPPETEER_HEADLESS: 'false',
       PUPPETEER_TIMEOUT: '180000',
-      // Credenciais do Firebase (do arquivo JSON - já com \n corretos)
+      PUPPETEER_HEADLESS_HISCREWEB: settings.headless?.hiscre ? 'true' : 'false',
+      PUPPETEER_HEADLESS_HISCREWEB_HEADLESS: settings.headless?.hiscre ? 'true' : 'false',
+      PUPPETEER_HEADLESS_GUIAS_CAIXA: settings.headless?.guiasCaixa ? 'true' : 'false',
+      PUPPETEER_HEADLESS_GUIAS_BANESTES: settings.headless?.guiasBanestes ? 'true' : 'false',
+      // Credenciais do Firebase (firebase-adminsdk para Firestore)
       FIREBASE_TYPE: firebaseCredentials.type || 'service_account',
       FIREBASE_PROJECT_ID: firebaseCredentials.project_id || 'aps-bsfco',
       FIREBASE_PRIVATE_KEY_ID: firebaseCredentials.private_key_id || '',
@@ -396,18 +478,32 @@ async function startServer() {
       FIREBASE_TOKEN_URI: firebaseCredentials.token_uri || 'https://oauth2.googleapis.com/token',
       FIREBASE_AUTH_PROVIDER_X509_CERT_URL: firebaseCredentials.auth_provider_x509_cert_url || 'https://www.googleapis.com/oauth2/v1/certs',
       FIREBASE_CLIENT_X509_CERT_URL: firebaseCredentials.client_x509_cert_url || '',
-      // Credenciais do Google (mesmas do Firebase)
-      GOOGLE_TYPE: firebaseCredentials.type || 'service_account',
-      GOOGLE_PROJECT_ID: firebaseCredentials.project_id || 'aps-bsfco',
-      GOOGLE_PRIVATE_KEY_ID: firebaseCredentials.private_key_id || '',
-      GOOGLE_PRIVATE_KEY: firebaseCredentials.private_key || '',
-      GOOGLE_CLIENT_EMAIL: firebaseCredentials.client_email || '',
-      GOOGLE_CLIENT_ID: firebaseCredentials.client_id || '',
-      GOOGLE_AUTH_URI: firebaseCredentials.auth_uri || 'https://accounts.google.com/o/oauth2/auth',
-      GOOGLE_TOKEN_URI: firebaseCredentials.token_uri || 'https://oauth2.googleapis.com/token',
-      GOOGLE_AUTH_PROVIDER_X509_CERT_URL: firebaseCredentials.auth_provider_x509_cert_url || 'https://www.googleapis.com/oauth2/v1/certs',
-      GOOGLE_CLIENT_X509_CERT_URL: firebaseCredentials.client_x509_cert_url || ''
+      // Credenciais do Google Drive (automacoes-inss para Drive)
+      GOOGLE_TYPE: googleDriveCredentials.type || 'service_account',
+      GOOGLE_PROJECT_ID: googleDriveCredentials.project_id || 'aps-bsfco',
+      GOOGLE_PRIVATE_KEY_ID: googleDriveCredentials.private_key_id || '',
+      GOOGLE_PRIVATE_KEY: googleDriveCredentials.private_key || '',
+      GOOGLE_CLIENT_EMAIL: googleDriveCredentials.client_email || '',
+      GOOGLE_CLIENT_ID: googleDriveCredentials.client_id || '',
+      GOOGLE_AUTH_URI: googleDriveCredentials.auth_uri || 'https://accounts.google.com/o/oauth2/auth',
+      GOOGLE_TOKEN_URI: googleDriveCredentials.token_uri || 'https://oauth2.googleapis.com/token',
+      GOOGLE_AUTH_PROVIDER_X509_CERT_URL: googleDriveCredentials.auth_provider_x509_cert_url || 'https://www.googleapis.com/oauth2/v1/certs',
+      GOOGLE_CLIENT_X509_CERT_URL: googleDriveCredentials.client_x509_cert_url || ''
     };
+
+    // ✅ LOG DAS CREDENCIAIS SENDO PASSADAS (sem expor valores sensíveis)
+    log.info('📋 Variáveis de ambiente configuradas:');
+    log.info('   === FIREBASE (Firestore) ===');
+    log.info(`   FIREBASE_TYPE: ${env.FIREBASE_TYPE}`);
+    log.info(`   FIREBASE_PROJECT_ID: ${env.FIREBASE_PROJECT_ID}`);
+    log.info(`   FIREBASE_CLIENT_EMAIL: ${env.FIREBASE_CLIENT_EMAIL}`);
+    log.info(`   FIREBASE_PRIVATE_KEY: ${env.FIREBASE_PRIVATE_KEY ? `${env.FIREBASE_PRIVATE_KEY.length} caracteres` : 'NÃO DEFINIDA'}`);
+    log.info('   === GOOGLE DRIVE ===');
+    log.info(`   GOOGLE_TYPE: ${env.GOOGLE_TYPE}`);
+    log.info(`   GOOGLE_PROJECT_ID: ${env.GOOGLE_PROJECT_ID}`);
+    log.info(`   GOOGLE_CLIENT_EMAIL: ${env.GOOGLE_CLIENT_EMAIL}`);
+    log.info(`   GOOGLE_PRIVATE_KEY: ${env.GOOGLE_PRIVATE_KEY ? `${env.GOOGLE_PRIVATE_KEY.length} caracteres` : 'NÃO DEFINIDA'}`);
+    log.info(`   GOOGLE_PRIVATE_KEY_ID: ${env.GOOGLE_PRIVATE_KEY_ID ? 'DEFINIDA' : 'NÃO DEFINIDA'}`);
 
     // Se usar emuladores, passar a flag
     if (USE_EMULATORS) {
@@ -420,10 +516,11 @@ async function startServer() {
     }
 
     // Log das configurações de autostart
-    log.info(`Autostart - HISCRE: ${env.AUTOSTART_HISCRE}, OFCWeb: ${env.AUTOSTART_OFCWEB}, Guias: ${env.AUTOSTART_GUIAS}`);
+    log.info(`Autostart - HISCRE: ${env.AUTOSTART_HISCRE}, OFCWEB Cadastro: ${env.AUTOSTART_OFCWEB_CADASTRO}, OFCWEB Consulta: ${env.AUTOSTART_OFCWEB_CONSULTA}, Guias: ${env.AUTOSTART_GUIAS}`);
     sendLog('info', `⚙️ Autostart configurado para: ${[
       settings.autostart.hiscre ? 'HISCRE' : null,
-      settings.autostart.ofcweb ? 'OFCWeb' : null,
+      settings.autostart.ofcwebCadastro ? 'OFCWEB Cadastro' : null,
+      settings.autostart.ofcwebConsulta ? 'OFCWEB Consulta' : null,
       settings.autostart.guias ? 'Guias' : null
     ].filter(Boolean).join(', ') || 'Nenhum'}`);
 
@@ -482,29 +579,86 @@ async function startServer() {
 /**
  * Aguardar servidor responder
  */
-function waitForServer(resolve, reject, attempt = 0) {
-  const maxAttempts = 60; // Aumentado para 60 segundos
+function waitForServer(resolve, reject, attempt = 0, retryCount = 0) {
+  const maxAttempts = 120; // Aumentado para 120 segundos (2 minutos)
+  const maxRetries = 2; // Número máximo de tentativas de reinício automático
   const checkInterval = 1000; // 1 segundo
 
   if (attempt >= maxAttempts) {
-    const errorMsg = `⏱️ Timeout: Servidor não respondeu após ${maxAttempts} segundos`;
+    // Se ainda temos tentativas de reinício disponíveis
+    if (retryCount < maxRetries) {
+      const retryNum = retryCount + 1;
+      log.warn(`⚠️ Timeout após ${maxAttempts} segundos. Tentativa de reinício ${retryNum}/${maxRetries}...`);
+      sendLog('warn', `⚠️ Timeout detectado. Reiniciando servidor automaticamente (tentativa ${retryNum}/${maxRetries})...`);
+
+      // Parar o servidor atual e tentar novamente
+      stopServer().then(() => {
+        setTimeout(() => {
+          startServer()
+            .then(() => resolve())
+            .catch((err) => {
+              log.error(`❌ Falha na tentativa de reinício ${retryNum}:`, err);
+              // Se ainda há tentativas, o startServer vai chamar waitForServer novamente
+              if (retryCount >= maxRetries - 1) {
+                const errorMsg = `❌ Falha ao iniciar servidor após ${maxRetries} tentativas automáticas`;
+                log.error(errorMsg);
+                sendLog('error', errorMsg);
+                sendLog('error', '💡 Por favor, reinicie o aplicativo manualmente');
+                reject(new Error('Falha ao iniciar servidor após múltiplas tentativas'));
+              }
+            });
+        }, 2000); // Aguardar 2s antes de tentar reiniciar
+      });
+      return;
+    }
+
+    // Se esgotamos todas as tentativas
+    const errorMsg = `❌ Servidor não respondeu após ${maxAttempts} segundos e ${maxRetries} tentativas de reinício`;
     log.error(errorMsg);
     sendLog('error', errorMsg);
-    sendLog('error', '💡 Tente reiniciar o servidor manualmente');
-    reject(new Error('Timeout ao iniciar servidor'));
+    sendLog('error', '💡 Por favor, reinicie o aplicativo manualmente');
+    reject(new Error('Timeout ao iniciar servidor após múltiplas tentativas'));
     return;
   }
 
-  // Enviar feedback a cada 5 segundos
-  if (attempt > 0 && attempt % 5 === 0) {
+  // Enviar feedback a cada 10 segundos
+  if (attempt > 0 && attempt % 10 === 0) {
     const elapsed = attempt;
-    sendLog('info', `⏳ Aguardando servidor... (${elapsed}s)`);
+    sendLog('info', `⏳ Aguardando servidor... (${elapsed}s/${maxAttempts}s)`);
     log.info(`Tentativa ${attempt}/${maxAttempts} - Aguardando ${SERVER_URL}/health`);
   }
 
   // Log detalhado da primeira tentativa
   if (attempt === 0) {
     log.info(`Verificando health check em: ${SERVER_URL}/health`);
+  }
+
+  // Verificar se o processo ainda está rodando
+  if (attempt > 10 && serverProcess && !serverProcess.pid) {
+    log.error('❌ Processo do servidor morreu inesperadamente');
+    sendLog('error', '❌ Processo do servidor encerrou inesperadamente');
+
+    // Se ainda temos tentativas de reinício disponíveis
+    if (retryCount < maxRetries) {
+      const retryNum = retryCount + 1;
+      sendLog('warn', `🔄 Reiniciando servidor automaticamente (tentativa ${retryNum}/${maxRetries})...`);
+
+      setTimeout(() => {
+        startServer()
+          .then(() => resolve())
+          .catch((err) => {
+            log.error(`❌ Falha na tentativa de reinício ${retryNum}:`, err);
+            if (retryCount >= maxRetries - 1) {
+              sendLog('error', '💡 Por favor, reinicie o aplicativo manualmente');
+              reject(new Error('Falha ao iniciar servidor após múltiplas tentativas'));
+            }
+          });
+      }, 2000);
+      return;
+    }
+
+    reject(new Error('Processo do servidor encerrou inesperadamente'));
+    return;
   }
 
   axios
@@ -526,7 +680,7 @@ function waitForServer(resolve, reject, attempt = 0) {
         log.warn(`Tentativa ${attempt + 1}: ${error.code || error.message}`);
       }
 
-      setTimeout(() => waitForServer(resolve, reject, attempt + 1), checkInterval);
+      setTimeout(() => waitForServer(resolve, reject, attempt + 1, retryCount), checkInterval);
     });
 }
 
@@ -758,35 +912,118 @@ function pararMonitoramentoConexao() {
 }
 
 /**
+ * Estado de atualização
+ */
+let updateState = {
+  checking: false,
+  available: false,
+  downloading: false,
+  downloaded: false,
+  version: null,
+  progress: 0,
+  error: null
+};
+
+/**
+ * Notificar janela sobre estado da atualização
+ */
+function notifyUpdateState() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-state-changed', updateState);
+  }
+}
+
+/**
  * Verificar atualizações
  */
 function checkForUpdates() {
-  autoUpdater.checkForUpdatesAndNotify();
+  // Remover listeners antigos para evitar duplicação
+  autoUpdater.removeAllListeners();
 
+  // Configurar eventos do auto-updater
   autoUpdater.on('checking-for-update', () => {
+    log.info('🔍 Verificando atualizações...');
+    updateState.checking = true;
+    updateState.error = null;
+    notifyUpdateState();
     sendLog('info', 'Verificando atualizações...');
   });
 
   autoUpdater.on('update-available', (info) => {
-    sendLog('info', `Atualização disponível: v${info.version}`);
+    log.info(`✨ Atualização disponível: v${info.version}`);
+    updateState.checking = false;
+    updateState.available = true;
+    updateState.version = info.version;
+    updateState.downloading = true; // Já começa baixando automaticamente
+    notifyUpdateState();
+    sendLog('info', `Atualização v${info.version} disponível! Baixando...`);
   });
 
-  autoUpdater.on('update-not-available', () => {
-    sendLog('info', 'Nenhuma atualização disponível');
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('✅ App está na versão mais recente');
+    updateState.checking = false;
+    updateState.available = false;
+    updateState.version = info.version;
+    notifyUpdateState();
+    sendLog('info', `Versão atual (v${app.getVersion()}) é a mais recente`);
   });
 
   autoUpdater.on('error', (err) => {
+    log.error('❌ Erro no auto-updater:', err);
+    updateState.checking = false;
+    updateState.downloading = false;
+    updateState.error = err.message;
+    notifyUpdateState();
     sendLog('error', `Erro na atualização: ${err.message}`);
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
-    const message = `Baixando: ${Math.round(progressObj.percent)}%`;
-    sendLog('info', message);
+    const percent = Math.round(progressObj.percent);
+
+    updateState.downloading = true;
+    updateState.progress = percent;
+    notifyUpdateState();
+
+    // Enviar log apenas a cada 5%
+    if (percent % 5 === 0 || percent === 100) {
+      log.info(`⬇️ Baixando atualização: ${percent}%`);
+      sendLog('info', `Baixando atualização: ${percent}%`);
+    }
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    sendLog('success', 'Atualização baixada! Será instalada ao reiniciar.');
+    log.info('✅ Atualização baixada com sucesso!');
+    updateState.downloading = false;
+    updateState.downloaded = true;
+    updateState.progress = 100;
+    notifyUpdateState();
+
+    sendLog('success', `Atualização v${info.version} pronta para instalar!`);
+
+    // Notificar janela para exibir tela de atualização completa
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-ready-to-install', {
+        version: info.version,
+        releaseDate: info.releaseDate
+      });
+    }
   });
+
+  // Iniciar verificação
+  autoUpdater.checkForUpdatesAndNotify();
+}
+
+/**
+ * Instalar atualização e reiniciar
+ */
+function installUpdateAndRestart() {
+  log.info('🔄 Instalando atualização e reiniciando...');
+  app.isQuitting = true;
+
+  // quitAndInstall(isSilent, isForceRunAfter)
+  // isSilent=false: mostra o instalador
+  // isForceRunAfter=true: reinicia o app após instalar
+  autoUpdater.quitAndInstall(false, true);
 }
 
 /**
@@ -864,6 +1101,17 @@ ipcMain.handle('verificar-conexao', async () => {
   }
 });
 
+// Handler para instalar atualização
+ipcMain.handle('install-update', () => {
+  installUpdateAndRestart();
+  return { success: true };
+});
+
+// Handler para obter estado da atualização
+ipcMain.handle('get-update-state', () => {
+  return updateState;
+});
+
 // Minimizar para bandeja
 ipcMain.on('minimize-to-tray', () => {
   if (mainWindow) {
@@ -882,20 +1130,30 @@ app.whenReady().then(async () => {
   log.info(`    Packaged: ${isPackaged}`);
   log.info('========================================');
 
-  sendLog('info', `🚀 Iniciando Penhoras Server Console v${app.getVersion()}`);
-
   createWindow();
   createTray();
 
-  // Verificar atualizações
+  // VERIFICAR ATUALIZAÇÕES ANTES DE INICIAR O SERVIDOR
   if (isPackaged) {
-    sendLog('info', '🔍 Verificando atualizações...');
+    sendLog('info', `🚀 Penhoras Server v${app.getVersion()}`);
+    sendLog('info', '🔍 Verificando atualizações antes de iniciar...');
+
     checkForUpdates();
+
+    // Aguardar 3 segundos para verificação de update
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Se há atualização disponível, NÃO iniciar servidor
+    if (updateState.available) {
+      sendLog('warn', '⏳ Aguardando download da atualização...');
+      sendLog('warn', '⚠️ Servidor NÃO será iniciado até atualização concluir');
+      return; // Não continua com inicialização do servidor
+    }
   } else {
     sendLog('info', '🔧 Modo desenvolvimento - auto-update desabilitado');
   }
 
-  // Iniciar servidor
+  // Iniciar servidor apenas se não há update ou em dev
   sendLog('info', '⚙️ Preparando para iniciar servidor...');
   try {
     await startServer();

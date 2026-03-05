@@ -22,6 +22,124 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
+        position: relative;
+      }
+
+      /* ===== TELA DE ATUALIZAÇÃO ===== */
+      .update-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.95);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(10px);
+      }
+
+      .update-overlay.active {
+        display: flex;
+      }
+
+      .update-modal {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 40px;
+        max-width: 500px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateY(-50px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .update-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        animation: bounce 2s infinite;
+      }
+
+      @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+
+      .update-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 12px;
+      }
+
+      .update-version {
+        font-size: 18px;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 20px;
+      }
+
+      .update-message {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.6;
+        margin-bottom: 30px;
+      }
+
+      .update-progress {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+
+      .update-progress-bar {
+        height: 100%;
+        background: white;
+        transition: width 0.3s ease;
+        border-radius: 4px;
+      }
+
+      .update-progress-text {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 20px;
+      }
+
+      .update-btn {
+        background: white;
+        color: #667eea;
+        padding: 12px 32px;
+        border: none;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .update-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+      }
+
+      .update-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
       }
 
       /* Header */
@@ -94,6 +212,18 @@
       .nav-tab.active {
         color: #007acc;
         border-bottom-color: #007acc;
+      }
+
+      .nav-tab-badge {
+        background-color: #007acc;
+        color: #ffffff;
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 10px;
+        margin-left: 4px;
+        font-weight: 600;
+        min-width: 18px;
+        text-align: center;
       }
 
       /* Content Sections */
@@ -231,6 +361,42 @@
         color: #e57373;
       }
 
+      /* Login Status Badge */
+      .service-login-status {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        width: fit-content;
+      }
+
+      .service-login-status.logged-in {
+        background-color: rgba(129, 199, 132, 0.15);
+        color: #81c784;
+      }
+
+      .service-login-status.waiting-login {
+        background-color: rgba(255, 183, 77, 0.15);
+        color: #ffb74d;
+      }
+
+      .service-login-status.no-login {
+        background-color: rgba(133, 133, 133, 0.1);
+        color: #858585;
+      }
+
+      /* Service status header layout */
+      .service-status-badges {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+      }
+
       .service-status-dot {
         width: 8px;
         height: 8px;
@@ -345,30 +511,26 @@
         transform: translateX(20px);
       }
 
-      /* Logs Section */
-      .logs-section {
-        flex: 1;
+      /* Logs Tab */
+      .logs-tab-content {
         display: flex;
         flex-direction: column;
+        height: 100%;
         background-color: #1e1e1e;
       }
 
-      .logs-header {
+      .logs-toolbar {
         background-color: #252526;
-        padding: 12px 20px;
+        padding: 10px 20px;
         border-bottom: 1px solid #3e3e42;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        cursor: pointer;
-        user-select: none;
+        gap: 12px;
+        flex-wrap: wrap;
       }
 
-      .logs-header:hover {
-        background-color: #2d2d30;
-      }
-
-      .logs-header-title {
+      .logs-toolbar-title {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -377,16 +539,76 @@
         color: #cccccc;
       }
 
-      .logs-collapse-icon {
-        transition: transform 0.2s;
+      .logs-toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        justify-content: flex-end;
+      }
+
+      .logs-filter-container {
+        display: flex;
+        align-items: center;
+        position: relative;
+      }
+
+      .logs-filter-input {
+        background: #3c3c3c;
+        border: 1px solid #555;
+        color: #d4d4d4;
+        padding: 5px 28px 5px 10px;
+        border-radius: 4px;
+        font-family: 'Consolas', monospace;
+        font-size: 12px;
+        width: 220px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .logs-filter-input::placeholder {
+        color: #858585;
+      }
+
+      .logs-filter-input:focus {
+        border-color: #007acc;
+      }
+
+      .logs-filter-input.active {
+        border-color: #007acc;
+        background: #2d2d30;
+      }
+
+      .logs-filter-clear {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #858585;
+        cursor: pointer;
         font-size: 14px;
+        padding: 0 2px;
+        line-height: 1;
+        display: none;
       }
 
-      .logs-collapse-icon.collapsed {
-        transform: rotate(-90deg);
+      .logs-filter-clear:hover {
+        color: #d4d4d4;
       }
 
-      .logs-header-actions {
+      .logs-filter-clear.visible {
+        display: block;
+      }
+
+      .logs-filter-info {
+        font-size: 11px;
+        color: #858585;
+        white-space: nowrap;
+      }
+
+      .logs-toolbar-actions {
         display: flex;
         gap: 8px;
       }
@@ -397,14 +619,6 @@
         padding: 15px 20px;
         font-size: 13px;
         line-height: 1.6;
-        max-height: 300px;
-        transition: max-height 0.3s;
-      }
-
-      .logs-content.collapsed {
-        max-height: 0;
-        padding: 0 20px;
-        overflow: hidden;
       }
 
       .logs-content::-webkit-scrollbar {
@@ -521,6 +735,25 @@
     </style>
   </head>
   <body>
+    <!-- TELA DE ATUALIZAÇÃO -->
+    <div class="update-overlay" id="updateOverlay">
+      <div class="update-modal">
+        <div class="update-icon" id="updateIcon">🔄</div>
+        <div class="update-title" id="updateTitle">Verificando Atualizações...</div>
+        <div class="update-version" id="updateVersion"></div>
+        <div class="update-message" id="updateMessage">
+          Aguarde enquanto verificamos se há uma nova versão disponível.
+        </div>
+        <div class="update-progress" id="updateProgressContainer" style="display: none;">
+          <div class="update-progress-bar" id="updateProgressBar" style="width: 0%"></div>
+        </div>
+        <div class="update-progress-text" id="updateProgressText"></div>
+        <button class="update-btn" id="updateBtn" onclick="installUpdate()" style="display: none;">
+          Instalar e Reiniciar
+        </button>
+      </div>
+    </div>
+
     <div class="container">
       <!-- Header -->
       <div class="header">
@@ -546,6 +779,9 @@
         <button class="nav-tab" onclick="switchTab('settings')">
           ⚙️ Configurações
         </button>
+        <button class="nav-tab" onclick="switchTab('logs')" id="logsTabBtn">
+          📟 Logs <span class="nav-tab-badge" id="logCount">0</span>
+        </button>
       </div>
 
       <!-- Content -->
@@ -562,9 +798,15 @@
               <div class="service-card">
                 <div class="service-header">
                   <div class="service-name">Serviço HISCRE</div>
-                  <div class="service-status offline" id="status-hiscre">
-                    <span class="service-status-dot"></span>
-                    <span>Offline</span>
+                  <div class="service-status-badges">
+                    <div class="service-status offline" id="status-hiscre">
+                      <span class="service-status-dot"></span>
+                      <span>Offline</span>
+                    </div>
+                    <div class="service-login-status no-login" id="login-status-hiscre">
+                      <span>🔒</span>
+                      <span>—</span>
+                    </div>
                   </div>
                 </div>
                 <div class="service-info" id="info-hiscre">
@@ -580,23 +822,57 @@
                 </div>
               </div>
 
-              <!-- Service Card: OFCWeb -->
+              <!-- Service Card: OFCWEB Cadastro -->
               <div class="service-card">
                 <div class="service-header">
-                  <div class="service-name">Serviço OFCWeb</div>
-                  <div class="service-status offline" id="status-ofcweb">
-                    <span class="service-status-dot"></span>
-                    <span>Offline</span>
+                  <div class="service-name">OFCWEB Cadastro</div>
+                  <div class="service-status-badges">
+                    <div class="service-status offline" id="status-ofcweb-cadastro">
+                      <span class="service-status-dot"></span>
+                      <span>Offline</span>
+                    </div>
+                    <div class="service-login-status no-login" id="login-status-ofcweb-cadastro">
+                      <span>🔒</span>
+                      <span>—</span>
+                    </div>
                   </div>
                 </div>
-                <div class="service-info" id="info-ofcweb">
+                <div class="service-info" id="info-ofcweb-cadastro">
                   Aguardando inicialização...
                 </div>
                 <div class="service-actions">
-                  <button class="btn btn-success btn-sm" onclick="startService('ofcweb')" id="btn-start-ofcweb">
+                  <button class="btn btn-success btn-sm" onclick="startService('ofcweb-cadastro')" id="btn-start-ofcweb-cadastro">
                     ▶️ Iniciar
                   </button>
-                  <button class="btn btn-primary btn-sm" onclick="restartService('ofcweb')" id="btn-restart-ofcweb" style="display: none;">
+                  <button class="btn btn-primary btn-sm" onclick="restartService('ofcweb-cadastro')" id="btn-restart-ofcweb-cadastro" style="display: none;">
+                    🔄 Reiniciar
+                  </button>
+                </div>
+              </div>
+
+              <!-- Service Card: OFCWEB Consulta -->
+              <div class="service-card">
+                <div class="service-header">
+                  <div class="service-name">OFCWEB Consulta</div>
+                  <div class="service-status-badges">
+                    <div class="service-status offline" id="status-ofcweb-consulta">
+                      <span class="service-status-dot"></span>
+                      <span>Offline</span>
+                    </div>
+                    <div class="service-login-status no-login" id="login-status-ofcweb-consulta">
+                      <span>🔒</span>
+                      <span>—</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="service-info" id="info-ofcweb-consulta">
+                  Aguardando inicialização...
+                </div>
+                <div class="service-actions">
+                  <button class="btn btn-success btn-sm" onclick="startService('ofcweb-consulta')" id="btn-start-ofcweb-consulta">
+                    ▶️ Iniciar
+                  </button>
+                  <button class="btn btn-primary btn-sm" onclick="restartService('ofcweb-consulta')" id="btn-restart-ofcweb-consulta" style="display: none;">
                     🔄 Reiniciar
                   </button>
                 </div>
@@ -606,9 +882,15 @@
               <div class="service-card">
                 <div class="service-header">
                   <div class="service-name">Serviço Guias</div>
-                  <div class="service-status offline" id="status-guias">
-                    <span class="service-status-dot"></span>
-                    <span>Offline</span>
+                  <div class="service-status-badges">
+                    <div class="service-status offline" id="status-guias">
+                      <span class="service-status-dot"></span>
+                      <span>Offline</span>
+                    </div>
+                    <div class="service-login-status no-login" id="login-status-guias">
+                      <span>🔒</span>
+                      <span>—</span>
+                    </div>
                   </div>
                 </div>
                 <div class="service-info" id="info-guias">
@@ -647,11 +929,21 @@
               </div>
               <div class="setting-item">
                 <div class="setting-label">
-                  <span>🌐</span>
-                  <span>Serviço OFCWeb</span>
+                  <span>📝</span>
+                  <span>OFCWEB Cadastro</span>
                 </div>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="autostart-ofcweb" onchange="saveSettings()">
+                  <input type="checkbox" id="autostart-ofcweb-cadastro" onchange="saveSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span>🔍</span>
+                  <span>OFCWEB Consulta</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="autostart-ofcweb-consulta" onchange="saveSettings()">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
@@ -662,6 +954,44 @@
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="autostart-guias" onchange="saveSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <div class="setting-title">🕶️ Modo Headless por Serviço</div>
+              <div class="setting-description">
+                Defina se cada serviço deve rodar em modo não visível (headless). O login inicial pode abrir janela visível quando necessário.
+                <br><small>Os serviços OFCWEB sempre rodam em modo visível pois a sessão PHP não suporta transferência entre processos.</small>
+              </div>
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span>🔍</span>
+                  <span>HISCRE (consulta)</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="headless-hiscre" onchange="saveSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span>📄</span>
+                  <span>Guias Caixa</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="headless-guias-caixa" onchange="saveSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span>📄</span>
+                  <span>Guias Banestes</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="headless-guias-banestes" onchange="saveSettings()">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
@@ -698,26 +1028,36 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Logs Section (Collapsible) -->
-      <div class="logs-section">
-        <div class="logs-header" onclick="toggleLogs()">
-          <div class="logs-header-title">
-            <span class="logs-collapse-icon" id="logsCollapseIcon">▼</span>
-            <span>📟 Logs do Servidor</span>
-            <span id="logCount" style="color: #858585;">(0)</span>
-          </div>
-          <div class="logs-header-actions" onclick="event.stopPropagation()">
-            <button class="btn btn-secondary btn-sm" onclick="clearConsole()">
-              🗑️ Limpar
-            </button>
-          </div>
-        </div>
-        <div class="logs-content collapsed" id="logsContent">
-          <div class="empty-state">
-            <div class="icon">📟</div>
-            <p>Aguardando logs do servidor...</p>
+        <!-- Logs Tab -->
+        <div id="logsTab" class="tab-content">
+          <div class="logs-tab-content">
+            <div class="logs-toolbar">
+              <div class="logs-toolbar-title">
+                <span>📟 Logs do Servidor</span>
+              </div>
+              <div class="logs-toolbar-right">
+                <div class="logs-filter-container">
+                  <input type="text" class="logs-filter-input" id="logsFilterInput" placeholder="🔍 Filtrar logs..." oninput="applyLogFilter()" />
+                  <button class="logs-filter-clear" id="logsFilterClear" onclick="clearLogFilter()" title="Limpar filtro">✕</button>
+                </div>
+                <span class="logs-filter-info" id="logsFilterInfo"></span>
+                <div class="logs-toolbar-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="exportLogs()" title="Exportar logs para arquivo TXT">
+                    💾 Exportar
+                  </button>
+                  <button class="btn btn-secondary btn-sm" onclick="clearConsole()">
+                    🗑️ Limpar
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="logs-content" id="logsContent">
+              <div class="empty-state">
+                <div class="icon">📟</div>
+                <p>Aguardando logs do servidor...</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -726,138 +1066,6 @@
       <div class="footer">
         <div class="footer-info">
           <span>Penhoras Server v1.0.0</span>
-        </div>
-        <div>
-          <span id="serverStatus">Verificando status...</span>
-        </div>
-      </div>
-    </div>
-      }
-
-      .log-type {
-        font-weight: bold;
-        min-width: 60px;
-        flex-shrink: 0;
-      }
-
-      .log-message {
-        color: #d4d4d4;
-        word-break: break-word;
-      }
-
-      /* Log Types */
-      .log-type.info {
-        color: #4fc3f7;
-      }
-
-      .log-type.success {
-        color: #81c784;
-      }
-
-      .log-type.warn {
-        color: #ffb74d;
-      }
-
-      .log-type.error {
-        color: #e57373;
-      }
-
-      /* Footer */
-      .footer {
-        background-color: #252526;
-        padding: 10px 20px;
-        border-top: 1px solid #3e3e42;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 12px;
-        color: #858585;
-      }
-
-      .footer-info {
-        display: flex;
-        gap: 20px;
-      }
-
-      /* Loading */
-      .loading {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border: 2px solid #3e3e42;
-        border-top-color: #007acc;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      /* Empty state */
-      .empty-state {
-        text-align: center;
-        padding: 40px;
-        color: #858585;
-      }
-
-      .empty-state .icon {
-        font-size: 48px;
-        margin-bottom: 15px;
-        opacity: 0.3;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <!-- Header -->
-      <div class="header">
-        <h1>
-          <div class="status-indicator" id="statusIndicator"></div>
-          Penhoras Server Console
-        </h1>
-        <div class="header-actions">
-          <button class="btn btn-primary" onclick="restartServer()">
-            🔄 Reiniciar Servidor
-          </button>
-          <button class="btn btn-secondary" onclick="clearConsole()">
-            🗑️ Limpar
-          </button>
-        </div>
-      </div>
-
-      <!-- Services Panel -->
-      <div class="services-panel">
-        <div class="services-title">Reiniciar Serviços Individuais:</div>
-        <div class="services-grid">
-          <button class="service-btn" onclick="restartService('hiscre')">
-            <span class="icon">↻</span> HISCRE
-          </button>
-          <button class="service-btn" onclick="restartService('ofcweb')">
-            <span class="icon">↻</span> OFCWeb
-          </button>
-          <button class="service-btn" onclick="restartService('guias')">
-            <span class="icon">↻</span> Guias
-          </button>
-        </div>
-      </div>
-
-      <!-- Console -->
-      <div class="console" id="console">
-        <div class="empty-state">
-          <div class="icon">📟</div>
-          <p>Aguardando logs do servidor...</p>
-        </div>
-      </div>
-
-      <!-- Footer -->
-      <div class="footer">
-        <div class="footer-info">
-          <span>Penhoras Server v1.0.0</span>
-          <span>|</span>
-          <span id="logCount">0 logs</span>
         </div>
         <div>
           <span id="serverStatus">Verificando status...</span>
@@ -869,28 +1077,110 @@
       const { ipcRenderer } = require('electron');
 
       let logCount = 0;
-      const MAX_LOGS = 200; // Limitar a 200 logs mais recentes
+      const MAX_LOGS = 500;
+      const MAX_LOGS_EXPORT = 3600;
       const logsContentEl = document.getElementById('logsContent');
       const logCountEl = document.getElementById('logCount');
       const serverStatusEl = document.getElementById('serverStatus');
       const statusIndicator = document.getElementById('statusIndicator');
-      let logsCollapsed = true; // Iniciar minimizado
+      let userScrolledUp = false;
+      let allLogs = [];
+      let logFilterText = ''; // Texto do filtro ativo
 
       // Estados dos serviços
       const serviceStates = {
-        hiscre: { running: false, lastUpdate: null },
-        ofcweb: { running: false, lastUpdate: null },
-        guias: { running: false, lastUpdate: null }
+        hiscre: { running: false, loggedIn: false, lastUpdate: null },
+        'ofcweb-cadastro': { running: false, loggedIn: false, lastUpdate: null },
+        'ofcweb-consulta': { running: false, loggedIn: false, lastUpdate: null },
+        guias: { running: false, loggedIn: false, lastUpdate: null }
       };
 
       // Configurações
       let settings = {
         autostart: {
           hiscre: true,
-          ofcweb: true,
+          ofcwebCadastro: true,
+          ofcwebConsulta: true,
           guias: true
+        },
+        headless: {
+          hiscre: true,
+          guiasCaixa: true,
+          guiasBanestes: true
         }
       };
+
+      // ===== GERENCIAMENTO DE ATUALIZAÇÃO =====
+      const updateOverlay = document.getElementById('updateOverlay');
+      const updateIcon = document.getElementById('updateIcon');
+      const updateTitle = document.getElementById('updateTitle');
+      const updateVersion = document.getElementById('updateVersion');
+      const updateMessage = document.getElementById('updateMessage');
+      const updateProgressContainer = document.getElementById('updateProgressContainer');
+      const updateProgressBar = document.getElementById('updateProgressBar');
+      const updateProgressText = document.getElementById('updateProgressText');
+      const updateBtn = document.getElementById('updateBtn');
+
+      // Listener para estado de atualização
+      ipcRenderer.on('update-state-changed', (event, state) => {
+        console.log('Update state changed:', state);
+
+        if (state.checking) {
+          showUpdateScreen('🔍', 'Verificando Atualizações...', '',
+            'Aguarde enquanto verificamos se há uma nova versão disponível.');
+        } else if (state.available && state.downloading) {
+          showUpdateScreen('⬇️', 'Baixando Atualização...', `v${state.version}`,
+            'Uma nova versão está sendo baixada. Por favor, aguarde.');
+          updateProgressContainer.style.display = 'block';
+          updateProgressBar.style.width = `${state.progress}%`;
+          updateProgressText.textContent = `${state.progress}% concluído`;
+        } else if (state.downloaded) {
+          showUpdateScreen('✅', 'Atualização Pronta!', `v${state.version}`,
+            'A nova versão foi baixada e está pronta para ser instalada. O aplicativo será reiniciado após a instalação.');
+          updateProgressContainer.style.display = 'none';
+          updateBtn.style.display = 'inline-block';
+        } else if (state.error) {
+          showUpdateScreen('❌', 'Erro na Atualização', '',
+            `Ocorreu um erro ao verificar atualizações: ${state.error}`);
+          setTimeout(() => {
+            hideUpdateScreen();
+          }, 5000);
+        } else if (!state.available && !state.checking) {
+          // Atualização não disponível, liberar uso normal
+          hideUpdateScreen();
+        }
+      });
+
+      // Listener para quando atualização está pronta
+      ipcRenderer.on('update-ready-to-install', (event, info) => {
+        showUpdateScreen('✅', 'Atualização Pronta!', `v${info.version}`,
+          'A nova versão foi baixada com sucesso! Clique no botão abaixo para instalar e reiniciar o aplicativo.');
+        updateBtn.style.display = 'inline-block';
+      });
+
+      function showUpdateScreen(icon, title, version, message) {
+        updateIcon.textContent = icon;
+        updateTitle.textContent = title;
+        updateVersion.textContent = version;
+        updateMessage.textContent = message;
+        updateOverlay.classList.add('active');
+      }
+
+      function hideUpdateScreen() {
+        updateOverlay.classList.remove('active');
+      }
+
+      async function installUpdate() {
+        updateBtn.disabled = true;
+        updateBtn.textContent = 'Instalando...';
+        await ipcRenderer.invoke('install-update');
+      }
+
+      // Detectar scroll do usuário nos logs
+      logsContentEl.addEventListener('scroll', () => {
+        const isAtBottom = logsContentEl.scrollHeight - logsContentEl.scrollTop <= logsContentEl.clientHeight + 50;
+        userScrolledUp = !isAtBottom;
+      });
 
       // Inicialização
       window.addEventListener('DOMContentLoaded', () => {
@@ -906,24 +1196,17 @@
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
         // Ativar tab selecionada
-        const tabElement = event.target;
+        const tabElement = event.target.closest('.nav-tab');
         const contentElement = document.getElementById(`${tabName}Tab`);
 
         tabElement.classList.add('active');
         contentElement.classList.add('active');
-      }
 
-      // Toggle logs
-      function toggleLogs() {
-        logsCollapsed = !logsCollapsed;
-        const icon = document.getElementById('logsCollapseIcon');
-
-        if (logsCollapsed) {
-          logsContentEl.classList.add('collapsed');
-          icon.classList.add('collapsed');
-        } else {
-          logsContentEl.classList.remove('collapsed');
-          icon.classList.remove('collapsed');
+        // Se abriu a aba de logs, rolar para o final
+        if (tabName === 'logs') {
+          setTimeout(() => {
+            logsContentEl.scrollTop = logsContentEl.scrollHeight;
+          }, 50);
         }
       }
 
@@ -935,8 +1218,21 @@
 
           // Aplicar nas checkboxes de autostart
           document.getElementById('autostart-hiscre').checked = settings.autostart.hiscre;
-          document.getElementById('autostart-ofcweb').checked = settings.autostart.ofcweb;
+          document.getElementById('autostart-ofcweb-cadastro').checked = settings.autostart.ofcwebCadastro;
+          document.getElementById('autostart-ofcweb-consulta').checked = settings.autostart.ofcwebConsulta;
           document.getElementById('autostart-guias').checked = settings.autostart.guias;
+
+          if (!settings.headless) {
+            settings.headless = {
+              hiscre: true,
+              guiasCaixa: true,
+              guiasBanestes: true
+            };
+          }
+
+          document.getElementById('headless-hiscre').checked = settings.headless.hiscre;
+          document.getElementById('headless-guias-caixa').checked = settings.headless.guiasCaixa;
+          document.getElementById('headless-guias-banestes').checked = settings.headless.guiasBanestes;
 
           // Aplicar configurações de autenticação do HISCRE
           if (settings.hiscreAuth) {
@@ -950,8 +1246,16 @@
       // Salvar configurações
       async function saveSettings() {
         settings.autostart.hiscre = document.getElementById('autostart-hiscre').checked;
-        settings.autostart.ofcweb = document.getElementById('autostart-ofcweb').checked;
+        settings.autostart.ofcwebCadastro = document.getElementById('autostart-ofcweb-cadastro').checked;
+        settings.autostart.ofcwebConsulta = document.getElementById('autostart-ofcweb-consulta').checked;
         settings.autostart.guias = document.getElementById('autostart-guias').checked;
+
+        if (!settings.headless) {
+          settings.headless = {};
+        }
+        settings.headless.hiscre = document.getElementById('headless-hiscre').checked;
+        settings.headless.guiasCaixa = document.getElementById('headless-guias-caixa').checked;
+        settings.headless.guiasBanestes = document.getElementById('headless-guias-banestes').checked;
 
         // Salvar configurações de autenticação do HISCRE
         if (!settings.hiscreAuth) {
@@ -983,7 +1287,8 @@
       // Atualizar status de todos os serviços
       async function updateAllServiceStatus() {
         updateServiceStatus('hiscre');
-        updateServiceStatus('ofcweb');
+        updateServiceStatus('ofcweb-cadastro');
+        updateServiceStatus('ofcweb-consulta');
         updateServiceStatus('guias');
         checkServerStatus();
       }
@@ -993,6 +1298,7 @@
         const result = await ipcRenderer.invoke('get-service-status', serviceName);
 
         const statusEl = document.getElementById(`status-${serviceName}`);
+        const loginStatusEl = document.getElementById(`login-status-${serviceName}`);
         const infoEl = document.getElementById(`info-${serviceName}`);
         const btnStart = document.getElementById(`btn-start-${serviceName}`);
         const btnRestart = document.getElementById(`btn-restart-${serviceName}`);
@@ -1000,19 +1306,33 @@
         if (result.running) {
           statusEl.className = 'service-status online';
           statusEl.innerHTML = '<span class="service-status-dot"></span><span>Online</span>';
-          infoEl.textContent = result.message || 'Serviço funcionando normalmente';
           btnStart.style.display = 'none';
           btnRestart.style.display = 'inline-flex';
           serviceStates[serviceName].running = true;
+
+          // Login status
+          if (result.loggedIn) {
+            loginStatusEl.className = 'service-login-status logged-in';
+            loginStatusEl.innerHTML = '<span>🔓</span><span>Logado</span>';
+            serviceStates[serviceName].loggedIn = true;
+          } else {
+            loginStatusEl.className = 'service-login-status waiting-login';
+            loginStatusEl.innerHTML = '<span>🔑</span><span>Aguardando login</span>';
+            serviceStates[serviceName].loggedIn = false;
+          }
         } else {
           statusEl.className = 'service-status offline';
           statusEl.innerHTML = '<span class="service-status-dot"></span><span>Offline</span>';
-          infoEl.textContent = result.message || 'Serviço parado';
           btnStart.style.display = 'inline-flex';
           btnRestart.style.display = 'none';
           serviceStates[serviceName].running = false;
+          serviceStates[serviceName].loggedIn = false;
+
+          loginStatusEl.className = 'service-login-status no-login';
+          loginStatusEl.innerHTML = '<span>🔒</span><span>—</span>';
         }
 
+        infoEl.textContent = result.message || (result.running ? 'Serviço funcionando normalmente' : 'Serviço parado');
         serviceStates[serviceName].lastUpdate = new Date().toISOString();
       }
 
@@ -1085,6 +1405,20 @@
 
       // Adicionar log ao console
       function addLog(type, message, timestamp = new Date().toISOString()) {
+        // Criar objeto de log
+        const logEntry = {
+          type,
+          message,
+          timestamp
+        };
+
+        // Adicionar ao array de todos os logs (para exportação)
+        allLogs.push(logEntry);
+
+        // Manter apenas logs da última hora
+        const oneHourAgo = Date.now() - (60 * 60 * 1000);
+        allLogs = allLogs.filter(log => new Date(log.timestamp).getTime() > oneHourAgo);
+
         // Remover empty state
         const emptyState = logsContentEl.querySelector('.empty-state');
         if (emptyState) {
@@ -1102,17 +1436,34 @@
           <span class="log-message">${escapeHtml(message)}</span>
         `;
 
+        // Aplicar filtro antes de exibir
+        if (logFilterText) {
+          const matchesFilter = message.toLowerCase().includes(logFilterText) ||
+                                type.toLowerCase().includes(logFilterText);
+          entry.style.display = matchesFilter ? '' : 'none';
+        }
+
         logsContentEl.appendChild(entry);
 
-        // Se não estiver colapsado, fazer scroll
-        if (!logsCollapsed) {
-          logsContentEl.scrollTop = logsContentEl.scrollHeight;
+        // AUTO-SCROLL INTELIGENTE: só rola se sem filtro ativo, aba visível e usuário no final
+        if (!logFilterText) {
+          const logsTabActive = document.getElementById('logsTab').classList.contains('active');
+          if (logsTabActive && !userScrolledUp) {
+            logsContentEl.scrollTop = logsContentEl.scrollHeight;
+          }
         }
 
         logCount++;
-        logCountEl.textContent = `(${logCount})`;
+        logCountEl.textContent = logCount;
 
-        // Manter apenas últimos MAX_LOGS logs para economizar memória
+        // Atualizar info do filtro se ativo
+        if (logFilterText) {
+          const allEntries = logsContentEl.querySelectorAll('.log-entry');
+          const visibleEntries = logsContentEl.querySelectorAll('.log-entry:not([style*="display: none"])');
+          document.getElementById('logsFilterInfo').textContent = `${visibleEntries.length} de ${allEntries.length}`;
+        }
+
+        // Manter apenas últimos MAX_LOGS logs visíveis para economizar memória
         const entries = logsContentEl.querySelectorAll('.log-entry');
         if (entries.length > MAX_LOGS) {
           // Remover os mais antigos
@@ -1121,6 +1472,47 @@
             entries[i].remove();
           }
         }
+      }
+
+      // Filtrar logs por texto
+      function applyLogFilter() {
+        const input = document.getElementById('logsFilterInput');
+        const clearBtn = document.getElementById('logsFilterClear');
+        const infoEl = document.getElementById('logsFilterInfo');
+        logFilterText = input.value.toLowerCase().trim();
+
+        // Mostrar/ocultar botão de limpar
+        clearBtn.classList.toggle('visible', logFilterText.length > 0);
+        input.classList.toggle('active', logFilterText.length > 0);
+
+        const entries = logsContentEl.querySelectorAll('.log-entry');
+        let visibleCount = 0;
+
+        entries.forEach(entry => {
+          if (!logFilterText) {
+            entry.style.display = '';
+            visibleCount++;
+          } else {
+            const text = entry.textContent.toLowerCase();
+            const matches = text.includes(logFilterText);
+            entry.style.display = matches ? '' : 'none';
+            if (matches) visibleCount++;
+          }
+        });
+
+        // Mostrar info do filtro
+        if (logFilterText) {
+          infoEl.textContent = `${visibleCount} de ${entries.length}`;
+        } else {
+          infoEl.textContent = '';
+        }
+      }
+
+      function clearLogFilter() {
+        const input = document.getElementById('logsFilterInput');
+        input.value = '';
+        applyLogFilter();
+        input.focus();
       }
 
       // Limpar console
@@ -1132,7 +1524,63 @@
           </div>
         `;
         logCount = 0;
-        logCountEl.textContent = '(0)';
+        logCountEl.textContent = '0';
+        // Limpar filtro junto
+        const filterInput = document.getElementById('logsFilterInput');
+        if (filterInput.value) {
+          filterInput.value = '';
+          applyLogFilter();
+        }
+      }
+
+      // Exportar logs para arquivo TXT
+      function exportLogs() {
+        // Usar allLogs ao invés de logs visíveis (última hora completa)
+        if (allLogs.length === 0) {
+          addLog('warn', 'Nenhum log disponível para exportar');
+          return;
+        }
+
+        // Criar conteúdo do arquivo
+        let content = '='.repeat(80) + '\n';
+        content += 'PENHORAS SERVER - LOGS EXPORTADOS\n';
+        content += `Data: ${new Date().toLocaleString('pt-BR')}\n`;
+        content += `Total de logs: ${allLogs.length}\n`;
+        content += `Período: Última hora\n`;
+        content += '='.repeat(80) + '\n\n';
+
+        // Exportar TODOS os logs da última hora (não apenas os visíveis)
+        allLogs.forEach((log) => {
+          const time = new Date(log.timestamp).toLocaleTimeString('pt-BR');
+          content += `[${time}] [${log.type.toUpperCase()}]: ${log.message}\n`;
+        });
+
+        content += '\n' + '='.repeat(80) + '\n';
+        content += 'FIM DOS LOGS\n';
+        content += '='.repeat(80);
+
+        // Criar nome do arquivo com timestamp
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+        const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-'); // HH-MM-SS
+        const filename = `penhoras-logs-${dateStr}_${timeStr}.txt`;
+
+        // Criar blob e fazer download
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+
+        // Cleanup
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+
+        addLog('success', `✅ ${allLogs.length} logs da última hora exportados: ${filename}`);
       }
 
       // Escape HTML

@@ -1,6 +1,6 @@
 {
   "name": "penhoras-server-app",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Aplicativo desktop para gerenciar o servidor de automações Penhoras",
   "repository": {
     "type": "git",
@@ -26,7 +26,7 @@
     "dist": "electron-builder --win --publish never",
     "prebuild": "node download-node.js"
   },
-  "author": "Penhoras Team",
+  "author": "Estêvão Terci da Silva",
   "license": "MIT",
   "devDependencies": {
     "cross-env": "^7.0.3",
@@ -42,6 +42,7 @@
   "build": {
     "appId": "com.penhoras.server",
     "productName": "PenhorasServer",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -75,6 +76,10 @@
         "to": "server/.env.production"
       },
       {
+        "from": "../server/.env.local",
+        "to": "server/.env.local"
+      },
+      {
         "from": "../server/private",
         "to": "server/private",
         "filter": [
@@ -104,10 +109,15 @@
       "oneClick": false,
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Penhoras Server",
-      "uninstallDisplayName": "Penhoras Server"
+      "uninstallDisplayName": "Penhoras Server",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": true
     },
     "publish": {
       "provider": "github",
