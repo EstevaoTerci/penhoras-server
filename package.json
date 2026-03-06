@@ -1,6 +1,6 @@
 {
   "name": "penhoras-server-app",
-  "version": "0.2.0",
+  "version": "1.1.1",
   "description": "Aplicativo desktop para gerenciar o servidor de automações Penhoras",
   "repository": {
     "type": "git",
