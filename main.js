@@ -1,5 +1,4 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -7,9 +6,25 @@ const axios = require('axios');
 const fs = require('fs');
 const fsPromises = fs.promises;
 
+let autoUpdater = null;
+
+function getAutoUpdater() {
+  if (autoUpdater) {
+    return autoUpdater;
+  }
+
+  try {
+    autoUpdater = require('electron-updater').autoUpdater;
+    autoUpdater.logger = log;
+    return autoUpdater;
+  } catch (error) {
+    log.warn('Auto-update indisponivel neste runtime:', error.message);
+    return null;
+  }
+}
+
 // Configurar logs
 log.transports.file.level = 'info';
-autoUpdater.logger = log;
 
 // Detectar ambiente do Electron
 const NODE_ENV = process.env.NODE_ENV || 'production';
@@ -937,11 +952,17 @@ function notifyUpdateState() {
  * Verificar atualizações
  */
 function checkForUpdates() {
+  const updater = getAutoUpdater();
+  if (!updater) {
+    sendLog('warn', 'Auto-update indisponivel nesta execucao');
+    return false;
+  }
+
   // Remover listeners antigos para evitar duplicação
-  autoUpdater.removeAllListeners();
+  updater.removeAllListeners();
 
   // Configurar eventos do auto-updater
-  autoUpdater.on('checking-for-update', () => {
+  updater.on('checking-for-update', () => {
     log.info('🔍 Verificando atualizações...');
     updateState.checking = true;
     updateState.error = null;
@@ -949,7 +970,7 @@ function checkForUpdates() {
     sendLog('info', 'Verificando atualizações...');
   });
 
-  autoUpdater.on('update-available', (info) => {
+  updater.on('update-available', (info) => {
     log.info(`✨ Atualização disponível: v${info.version}`);
     updateState.checking = false;
     updateState.available = true;
@@ -959,7 +980,7 @@ function checkForUpdates() {
     sendLog('info', `Atualização v${info.version} disponível! Baixando...`);
   });
 
-  autoUpdater.on('update-not-available', (info) => {
+  updater.on('update-not-available', (info) => {
     log.info('✅ App está na versão mais recente');
     updateState.checking = false;
     updateState.available = false;
@@ -968,7 +989,7 @@ function checkForUpdates() {
     sendLog('info', `Versão atual (v${app.getVersion()}) é a mais recente`);
   });
 
-  autoUpdater.on('error', (err) => {
+  updater.on('error', (err) => {
     log.error('❌ Erro no auto-updater:', err);
     updateState.checking = false;
     updateState.downloading = false;
@@ -977,7 +998,7 @@ function checkForUpdates() {
     sendLog('error', `Erro na atualização: ${err.message}`);
   });
 
-  autoUpdater.on('download-progress', (progressObj) => {
+  updater.on('download-progress', (progressObj) => {
     const percent = Math.round(progressObj.percent);
 
     updateState.downloading = true;
@@ -991,7 +1012,7 @@ function checkForUpdates() {
     }
   });
 
-  autoUpdater.on('update-downloaded', (info) => {
+  updater.on('update-downloaded', (info) => {
     log.info('✅ Atualização baixada com sucesso!');
     updateState.downloading = false;
     updateState.downloaded = true;
@@ -1010,20 +1031,27 @@ function checkForUpdates() {
   });
 
   // Iniciar verificação
-  autoUpdater.checkForUpdatesAndNotify();
+  updater.checkForUpdatesAndNotify();
+  return true;
 }
 
 /**
  * Instalar atualização e reiniciar
  */
 function installUpdateAndRestart() {
+  const updater = getAutoUpdater();
+  if (!updater) {
+    sendLog('error', 'Auto-update indisponivel nesta execucao');
+    return;
+  }
+
   log.info('🔄 Instalando atualização e reiniciando...');
   app.isQuitting = true;
 
   // quitAndInstall(isSilent, isForceRunAfter)
   // isSilent=false: mostra o instalador
   // isForceRunAfter=true: reinicia o app após instalar
-  autoUpdater.quitAndInstall(false, true);
+  updater.quitAndInstall(false, true);
 }
 
 /**
@@ -1138,10 +1166,12 @@ app.whenReady().then(async () => {
     sendLog('info', `🚀 Penhoras Server v${app.getVersion()}`);
     sendLog('info', '🔍 Verificando atualizações antes de iniciar...');
 
-    checkForUpdates();
+    const updateCheckStarted = checkForUpdates();
 
     // Aguardar 3 segundos para verificação de update
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    if (updateCheckStarted) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
 
     // Se há atualização disponível, NÃO iniciar servidor
     if (updateState.available) {
